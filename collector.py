@@ -73,10 +73,20 @@ class Reader:
         return dict(zip(devices, out))
 
 
-def md_to_mw(device):
-    """%MD{N} -> ('%MW{2N}', '%MW{2N+1}')  (XGI 워드 겹침)."""
-    n = int(re.match(r"%MD(\d+)", device).group(1))
-    return "%%MW%d" % (2 * n), "%%MW%d" % (2 * n + 1)
+def dword_to_words(device):
+    """DWORD device -> (하위워드, 상위워드) %MW 쌍.
+    - %MD{N} : XGI 워드 겹침 -> %MW{2N}, %MW{2N+1}
+    - %MW{N} : 이미 워드 오프셋 -> %MW{N}, %MW{N+1}
+    """
+    m = re.match(r"%MD(\d+)", device)
+    if m:
+        n = int(m.group(1))
+        return "%%MW%d" % (2 * n), "%%MW%d" % (2 * n + 1)
+    m = re.match(r"%MW(\d+)", device)
+    if m:
+        n = int(m.group(1))
+        return "%%MW%d" % n, "%%MW%d" % (n + 1)
+    raise ValueError("알 수 없는 DWORD 표기: %s" % device)
 
 
 def scale(raw_val, t):
@@ -107,7 +117,7 @@ def collect(tags, cid=CID):
         if t["dtype"] == "WORD":
             word_needed.add(t["device"])
         elif t["dtype"] == "DWORD":
-            lo, hi = md_to_mw(t["device"])
+            lo, hi = dword_to_words(t["device"])
             dword_pairs[t["tag"]] = (lo, hi)
             word_needed.add(lo); word_needed.add(hi)
 
